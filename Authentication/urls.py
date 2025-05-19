@@ -34,7 +34,12 @@ urlpatterns = [
     path('job/<int:job_id>/', views.job_detail, name='job_detail'),
     path('candidate/job_applications/', views.job_applications, name='applications'),
     path('apply/<int:job_id>/', views.apply_to_job, name='apply_to_job'),
-    path('candidate/job_applications/<int:application_id>/', views.application_detail, name='application_detail'),
+    #this path was causing an error
+    #path('candidate/job_applications/<int:application_id>/', views.application_detail, name='application_detail'),
+    
+    # Candidatures 
+    path('candidate/applications/', views.applications, name='applications'),
+    path('candidate/applications/<int:application_id>/', views.application_detail, name='application_detail'),
     
     
     # Profil

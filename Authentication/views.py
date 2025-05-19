@@ -952,3 +952,37 @@ def debug_company_profile(request):
     except Company.DoesNotExist:
         messages.error(request, "Profil d'entreprise non trouvé.")
         return redirect('company_dashboard')
+    
+@login_required
+def applications(request):
+    if request.user.role != 'candidat':
+        return redirect('home')
+    
+    candidate = get_object_or_404(Candidat, user=request.user)
+    
+    # Filtrer par statut si spécifié
+    status_filter = request.GET.get('status', '')
+    
+    applications = JobApplication.objects.filter(candidate=candidate)
+    
+    if status_filter:
+        applications = applications.filter(status=status_filter)
+    
+    # Statistiques
+    total_applications = JobApplication.objects.filter(candidate=candidate).count()
+    pending_applications = JobApplication.objects.filter(candidate=candidate, status='pending').count()
+    interview_applications = JobApplication.objects.filter(candidate=candidate, status='interview').count()
+    accepted_applications = JobApplication.objects.filter(candidate=candidate, status='accepted').count()
+    rejected_applications = JobApplication.objects.filter(candidate=candidate, status='rejected').count()
+    
+    context = {
+        'applications': applications,
+        'status_filter': status_filter,
+        'total_applications': total_applications,
+        'pending_applications': pending_applications,
+        'interview_applications': interview_applications,
+        'accepted_applications': accepted_applications,
+        'rejected_applications': rejected_applications
+    }
+    
+    return render(request, 'Authentication/applications.html', context)
