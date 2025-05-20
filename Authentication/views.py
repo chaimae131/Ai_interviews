@@ -470,6 +470,89 @@ def company_jobs(request):
     
     return render(request, 'Authentication/company_jobs.html', context)
 
+@login_required
+def job_offers(request):
+    """Vue pour afficher les offres d'emploi aux candidats"""
+    if request.user.role != 'candidat':
+        return redirect('home')
+    
+    # Récupérer uniquement les offres actives
+    jobs = Job.objects.filter(status='active').order_by('-created_at')
+    
+    # Récupérer le candidat
+    try:
+        candidate = request.user.candidat_profile
+        candidate_skills = CandidateSkill.objects.filter(candidate=candidate)
+    except Candidat.DoesNotExist:
+        candidate = None
+        candidate_skills = []
+    
+    # Appliquer les filtres de recherche
+    search_query = request.GET.get('search', '')
+    location_filter = request.GET.get('location', '')
+    contract_type_filter = request.GET.get('contract_type', '')
+    match_only = request.GET.get('match_only', False)
+    
+    if search_query:
+        jobs = jobs.filter(
+            Q(title__icontains=search_query) | 
+            Q(description__icontains=search_query) | 
+            Q(company__company_name__icontains=search_query) |
+            Q(tags__name__icontains=search_query)
+        ).distinct()
+    
+    if location_filter:
+        jobs = jobs.filter(location__icontains=location_filter)
+    
+    if contract_type_filter:
+        jobs = jobs.filter(job_type__iexact=contract_type_filter)
+    
+    # Calculer le pourcentage de correspondance pour chaque offre
+    for job in jobs:
+        job_skills = job.tags.all()
+        matching_skills = 0
+        
+        if candidate and job_skills.exists():
+            for skill in job_skills:
+                if candidate_skills.filter(skill=skill).exists():
+                    matching_skills += 1
+            
+            job.match_percentage = int((matching_skills / job_skills.count()) * 100)
+        else:
+            job.match_percentage = 0
+    
+    # Filtrer les offres qui correspondent au profil du candidat si demandé
+    if match_only and candidate:
+        jobs = [job for job in jobs if job.match_percentage > 0]
+    
+    # Trier les offres selon le critère choisi
+    sort_by = request.GET.get('sort', 'match')
+    if sort_by == 'match':
+        jobs = sorted(jobs, key=lambda job: job.match_percentage, reverse=True)
+    elif sort_by == 'date':
+        # Déjà trié par date dans la requête initiale
+        pass
+    elif sort_by == 'salary':
+        # Si vous avez un champ de salaire, vous pouvez trier ici
+        pass
+    
+    # Pagination
+    paginator = Paginator(jobs, 10)  # 10 offres par page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    context = {
+        'jobs': page_obj,
+        'search_query': search_query,
+        'location_filter': location_filter,
+        'contract_type_filter': contract_type_filter,
+        'match_only': match_only,
+        'sort_by': sort_by,
+    }
+    
+    return render(request, 'Authentication/job_offers.html', context)
+
+
 
 @login_required
 def edit_job(request, job_id):
